@@ -27,12 +27,14 @@ public class ConnectController : ControllerBase
     /// <summary>
     /// GET /Plugins/CFilm/Connect
     /// リバースプロキシ配下でも正しいホスト名を取るため、
-    /// X-Forwarded-Proto / X-Forwarded-Host を優先的に見る(無ければ Request から取得)。
+    /// X-Forwarded-Proto (標準名) と X-Forwarded-Protocol (Jellyfin界隈でよく使われる表記)の
+    /// 両方を見る(無ければ Request から取得)。X-Forwarded-Host も同様。
     /// </summary>
     [HttpGet("Connect")]
     public ContentResult GetConnect()
     {
-        var forwardedProto = Request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+        var forwardedProto = Request.Headers["X-Forwarded-Proto"].FirstOrDefault()
+            ?? Request.Headers["X-Forwarded-Protocol"].FirstOrDefault();
         var forwardedHost = Request.Headers["X-Forwarded-Host"].FirstOrDefault();
 
         var scheme = string.IsNullOrEmpty(forwardedProto) ? Request.Scheme : forwardedProto;
