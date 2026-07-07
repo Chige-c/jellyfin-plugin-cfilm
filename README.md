@@ -145,7 +145,37 @@ Authorization: MediaBrowser Token="<アクセストークン>"
 - **バージョン不一致で読み込めない** → サーバーが 10.11 系か確認。別バージョンなら
   `.csproj` の `Jellyfin.Controller` バージョンと `meta.json` の `targetAbi` を合わせて再ビルド。
 
-## 7. ファイル構成
+## 7. ワンタップ接続（任意）
+
+C-film アプリの「サーバーURLをタップ1つで自動入力」機能です。CFilmプラグインが
+入っているサーバーなら**追加のセットアップ無しで**使えます（プラグイン本体が
+`GET /Plugins/CFilm/Connect` エンドポイントとして提供するため）。
+
+### 使い方
+
+1. あなたの Jellyfin サーバーに、**Web UI を遮断した「バックエンド専用URL」**を
+   用意する（リバースプロキシで `/` と `/web/` を 403 にする。設定例は
+   お使いのリバースプロキシのドキュメントを参照）。
+2. そのバックエンド専用URL（例: `https://backend.example.com`）を、
+   そのまま LINE / Discord などで共有する。
+3. タップすると `https://backend.example.com` が一瞬開き、CFilmプラグインの
+   `Connect` エンドポイントが返す中継用ページが `cfilm://connect?server=...`
+   へ即座にリダイレクトし、C-film アプリが起動する。
+   アプリのサーバーURL入力欄には、タップされた URL 自身が自動入力される。
+
+### 仕組み
+
+Android の App Links / iOS の Universal Links（`https://` のまま自動起動する
+仕組み）は、対象ドメインを**アプリのビルド時に1つだけ事前登録**する必要があり、
+サーバー管理者ごとに異なるドメインには対応できません。CFilmプラグインの
+`Connect` エンドポイントは、事前登録が不要な**カスタムURLスキーム
+(`cfilm://`)へブラウザ側でリダイレクトする軽量なページ**を返すことで、
+この制約を回避しています。アクセスされた自分自身のホスト名
+（`X-Forwarded-Host` / `Host` ヘッダー）をそのまま `server=` パラメータに使うため、
+**プラグインが入っているサーバーであれば、ドメインを問わず同じ仕組みで動きます**
+（外部の中継サーバーやアプリの再ビルドは不要）。
+
+## 8. ファイル構成
 
 ```
 Jellyfin.Plugin.CFilm/
@@ -156,6 +186,7 @@ Jellyfin.Plugin.CFilm/
     configPage.html                 … 設定画面(検索・並べ替え・ライブラリ選択・スキャン)
   Api/
     RecommendationsController.cs     … GET /Plugins/CFilm/Recommendations
+    ConnectController.cs             … GET /Plugins/CFilm/Connect (ワンタップ接続)
   Vod/
     VodModels.cs                     … 返却JSONの形(VodProvider / VodProvidersResponse)
     VodProviderManager.cs            … 走査+TMDB取得+キャッシュ(頭脳)
