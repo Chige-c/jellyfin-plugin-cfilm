@@ -91,6 +91,15 @@ if ($null -eq $existing) {
 }
 
 $json = $manifest | ConvertTo-Json -Depth 10
+
+# Windows PowerShell 5.1 quirk: ConvertTo-Json unwraps a single-element
+# array into a plain object (drops the outer [ ]). The repository
+# manifest.json MUST be a top-level array even with only one plugin,
+# or Jellyfin's repository parser rejects it. Force the brackets back on.
+if (-not $json.TrimStart().StartsWith("[")) {
+    $json = "[`n" + $json + "`n]"
+}
+
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($manifestPath, $json, $utf8NoBom)
 
