@@ -8,6 +8,14 @@
     "category":  "General",
     "versions":  [
                      {
+                         "version":  "1.2.2.0",
+                         "changelog":  "Connect endpoint now also passes an optional Jellyseerr URL (configurable in plugin settings), so the app can automatically sign in to Jellyseerr using the same Jellyfin credentials right after login.",
+                         "targetAbi":  "10.11.11.0",
+                         "sourceUrl":  "https://github.com/Chige-c/jellyfin-plugin-cfilm/releases/download/v1.2.2.0/CFilm_1.2.2.0.zip",
+                         "checksum":  "6aa080ab5873638d241e868c1ac6b58b",
+                         "timestamp":  "2026-07-07T17:58:58"
+                     },
+                     {
                          "version":  "1.2.1.0",
                          "changelog":  "Connect endpoint now also accepts the X-Forwarded-Protocol header (in addition to X-Forwarded-Proto) when detecting the reverse-proxied URL.",
                          "targetAbi":  "10.11.11.0",
