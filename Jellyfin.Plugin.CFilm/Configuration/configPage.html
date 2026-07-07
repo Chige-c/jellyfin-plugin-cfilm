@@ -73,8 +73,17 @@
                     <!-- ============ 機能2: VOD識別 ============ -->
                     <div class="cfilm-section">
                         <h2>VOD識別（配信サービス）</h2>
+
+                        <h3>① 対象ライブラリを選ぶ（複数選択可）</h3>
+                        <div id="LibraryList" class="cfilm-list">
+                            <div class="cfilm-hint">読み込み中…</div>
+                        </div>
+                        <div class="fieldDescription">
+                            ここで選んだライブラリの中だけをスキャンします。何も選んでいないとスキャンは実行されません。
+                        </div>
+
+                        <h3 style="margin-top:1.5em;">② TMDB APIキー</h3>
                         <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB APIキー</label>
                             <input is="emby-input" id="TmdbApiKey" type="text" autocomplete="off" />
                             <div class="fieldDescription">
                                 themoviedb.org のアカウント設定 → API から取得できる v3 の「APIキー」。
@@ -82,10 +91,11 @@
                             </div>
                         </div>
 
-                        <div style="margin-top:10px;">
+                        <h3 style="margin-top:1.5em;">③ 実行</h3>
+                        <div>
                             <button type="button" id="ScanNow" class="cfilm-btn">🔄 今すぐスキャン</button>
                             <div class="fieldDescription">
-                                APIキーを保存してから、ライブラリ全体を走査します（作品数によっては数分かかります）。
+                                設定を保存してから、選んだライブラリだけを走査します（作品数によっては数分かかります）。
                             </div>
                             <div id="ScanStatus" class="cfilm-status"></div>
                         </div>
@@ -111,6 +121,7 @@
             var itemCache = {};       // id -> item  (名前や年を表示するための一時保管)
             var lastSearch = [];      // 直近の検索結果(「追加済み」表示の更新に使う)
             var searchTimer = null;   // 入力のたびに検索しすぎない用のタイマー
+            var savedLibraryIds = []; // 設定に保存済みのライブラリID(チェックボックスの初期状態に使う)
 
             var page = document.querySelector('#CFilmConfigPage');
 
@@ -172,6 +183,40 @@
                 page.querySelector('#SelectedItems').innerHTML = html;
             }
 
+            // --- 対象ライブラリ一覧の描画 ---
+            function renderLibraries(libraries) {
+                if (!libraries.length) {
+                    page.querySelector('#LibraryList').innerHTML =
+                        '<div class="cfilm-hint">ライブラリが見つかりません。</div>';
+                    return;
+                }
+                var html = libraries.map(function (lib) {
+                    var checked = savedLibraryIds.indexOf(lib.ItemId) !== -1;
+                    var typeLabel = lib.CollectionType
+                        ? ' <span style="opacity:.5">(' + esc(lib.CollectionType) + ')</span>'
+                        : '';
+                    return '<div class="cfilm-row">' +
+                               '<label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;margin:0;">' +
+                                   '<input type="checkbox" is="emby-checkbox" class="cfilm-lib-checkbox" data-id="' + lib.ItemId + '"' +
+                                       (checked ? ' checked' : '') + ' />' +
+                                   '<span class="cfilm-title">' + esc(lib.Name) + typeLabel + '</span>' +
+                               '</label>' +
+                           '</div>';
+                }).join('');
+                page.querySelector('#LibraryList').innerHTML = html;
+            }
+
+            // --- 対象ライブラリ一覧の取得(標準API: GET /Library/VirtualFolders、管理者権限) ---
+            function loadLibraries() {
+                return ApiClient.ajax({
+                    type: 'GET',
+                    url: ApiClient.getUrl('Library/VirtualFolders'),
+                    dataType: 'json'
+                }).then(function (libraries) {
+                    renderLibraries(libraries || []);
+                });
+            }
+
             // --- ライブラリ検索 ---
             function doSearch(term) {
                 if (!term) {
@@ -212,6 +257,8 @@
                     config.RecommendationRowName = page.querySelector('#RowName').value;
                     config.RecommendationItemIds = selectedIds;
                     config.TmdbApiKey = page.querySelector('#TmdbApiKey').value.trim();
+                    config.VodLibraryIds = Array.prototype.slice.call(page.querySelectorAll('.cfilm-lib-checkbox:checked'))
+                        .map(function (cb) { return cb.getAttribute('data-id'); });
                     return ApiClient.updatePluginConfiguration(pluginId, config);
                 });
             }
@@ -227,8 +274,13 @@
 
                 // 「今すぐスキャン」だけは data-id を持たない特別ボタン
                 if (btn.id === 'ScanNow') {
+                    var checkedCount = page.querySelectorAll('.cfilm-lib-checkbox:checked').length;
+                    if (checkedCount === 0) {
+                        setScanStatus('対象ライブラリを1つ以上選んでから実行してください。');
+                        return;
+                    }
                     Dashboard.showLoadingMsg();
-                    setScanStatus('APIキーを保存してスキャン中…');
+                    setScanStatus('設定を保存してスキャン中…');
                     saveConfig().then(function () {
                         // 管理者用の再構築APIを叩く(ApiClientが認証を自動付与)
                         return ApiClient.ajax({
@@ -291,7 +343,10 @@
                     page.querySelector('#RowName').value = config.RecommendationRowName || '';
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
                     selectedIds = (config.RecommendationItemIds || []).slice();
+                    savedLibraryIds = (config.VodLibraryIds || []).slice();
                     loadSelectedNames();
+                    return loadLibraries();
+                }).then(function () {
                     Dashboard.hideLoadingMsg();
                 });
             });

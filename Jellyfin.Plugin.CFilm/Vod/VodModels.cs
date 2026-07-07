@@ -24,9 +24,25 @@ public class VodProvider
 }
 
 /// <summary>
+/// 1作品分の結果。どのライブラリの作品か(libraryId)を一緒に持つのが肝。
+/// アプリ側はこれを見て「このライブラリの作品はVOD識別済みだから通常表示では隠す」
+/// といった判断ができます。
+/// </summary>
+public class VodItemEntry
+{
+    /// <summary>この作品が属するJellyfinライブラリのID(仮想フォルダのItemId)。</summary>
+    [JsonPropertyName("libraryId")]
+    public string LibraryId { get; set; } = string.Empty;
+
+    /// <summary>配信サービスの配列。</summary>
+    [JsonPropertyName("providers")]
+    public List<VodProvider> Providers { get; set; } = new();
+}
+
+/// <summary>
 /// GET /Plugins/CFilm/VodProviders が返す「一括対応表」。
-/// providers が本体で、キー=作品ID(32桁ハイフン無し)、値=配信サービスの配列。
-/// region / generatedAt / count は付随情報(自己説明のため)。
+/// items が本体で、キー=作品ID(32桁ハイフン無し)、値=libraryId+配信サービス配列。
+/// region / generatedAt / count / libraryIds は付随情報(自己説明のため)。
 /// </summary>
 public class VodProvidersResponse
 {
@@ -42,7 +58,11 @@ public class VodProvidersResponse
     [JsonPropertyName("count")]
     public int Count { get; set; }
 
-    /// <summary>作品ID → 配信サービス配列 の対応表。</summary>
-    [JsonPropertyName("providers")]
-    public Dictionary<string, List<VodProvider>> Providers { get; set; } = new();
+    /// <summary>スキャン対象として選ばれたライブラリID一覧(設定画面での選択そのまま)。</summary>
+    [JsonPropertyName("libraryIds")]
+    public List<string> LibraryIds { get; set; } = new();
+
+    /// <summary>作品ID → (libraryId, 配信サービス配列) の対応表。</summary>
+    [JsonPropertyName("items")]
+    public Dictionary<string, VodItemEntry> Items { get; set; } = new();
 }

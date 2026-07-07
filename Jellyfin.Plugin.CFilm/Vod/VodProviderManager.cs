@@ -60,9 +60,10 @@ public class VodProviderManager
         {
             var response = await BuildAsync(cancellationToken).ConfigureAwait(false);
 
-            // APIキーが無いときの「空の結果」は保存しない。
-            // 保存すると、後でキーを設定しても GET が空キャッシュを返し続けてしまうため。
-            if (!string.IsNullOrWhiteSpace(Plugin.Instance!.Configuration.TmdbApiKey))
+            // APIキー未設定 / ライブラリ未選択のときの「空の結果」は保存しない。
+            // 保存すると、後で設定しても GET が空キャッシュを返し続けてしまうため。
+            var config = Plugin.Instance!.Configuration;
+            if (!string.IsNullOrWhiteSpace(config.TmdbApiKey) && config.VodLibraryIds.Length > 0)
             {
                 SaveCache(response);
             }
@@ -88,6 +89,7 @@ public class VodProviderManager
         {
             Region = region,
             GeneratedAt = DateTime.UtcNow.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+            LibraryIds = config.VodLibraryIds.ToList()
         };
 
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -96,30 +98,57 @@ public class VodProviderManager
             return response;
         }
 
-        // ライブラリから 映画 と シリーズ を全部集める。
-        var items = _libraryManager.GetItemList(new InternalItemsQuery
+        if (config.VodLibraryIds.Length == 0)
         {
-            IncludeItemTypes = new[] { BaseItemKind.Movie, BaseItemKind.Series },
-            Recursive = true
-        });
+            _logger.LogWarning("CFilm: No libraries selected. VOD scan skipped.");
+            return response;
+        }
 
-        // TMDB ID を持つものだけを対象に絞る。
-        var targets = new List<(string ItemId, string MediaType, string TmdbId)>();
-        foreach (var item in items)
+        // 選んだライブラリごとに絞り込んで走査する。
+        // ParentId + Recursive=true で「そのライブラリ配下だけ」に限定できる
+        // (標準の /Items?ParentId=...&Recursive=true と同じ仕組み)。
+        // こうすることで、取得した瞬間に「どのライブラリの作品か」が分かる
+        // (後から逆引きする必要がない)。
+        var targets = new List<(string ItemId, string MediaType, string TmdbId, string LibraryId)>();
+        var seenItemIds = new HashSet<Guid>();
+
+        foreach (var libraryId in config.VodLibraryIds)
         {
-            var tmdbId = item.GetProviderId(MetadataProvider.Tmdb);
-            if (string.IsNullOrEmpty(tmdbId))
+            if (!Guid.TryParse(libraryId, out var libraryGuid))
             {
+                _logger.LogWarning("CFilm: skipping invalid library id in configuration: {LibraryId}", libraryId);
                 continue;
             }
 
-            // 映画は /movie、シリーズは /tv とURLが違う。
-            var mediaType = item is Series ? "tv" : "movie";
-            // 作品IDは Jellyfin の見た目に合わせて 32桁ハイフン無し("N")。
-            targets.Add((item.Id.ToString("N"), mediaType, tmdbId));
+            var items = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Movie, BaseItemKind.Series },
+                Recursive = true,
+                ParentId = libraryGuid
+            });
+
+            foreach (var item in items)
+            {
+                // 同じ作品が複数の選択ライブラリに重複して出てくる場合は、最初に見つけた方を採用する。
+                if (!seenItemIds.Add(item.Id))
+                {
+                    continue;
+                }
+
+                var tmdbId = item.GetProviderId(MetadataProvider.Tmdb);
+                if (string.IsNullOrEmpty(tmdbId))
+                {
+                    continue;
+                }
+
+                // 映画は /movie、シリーズは /tv とURLが違う。
+                var mediaType = item is Series ? "tv" : "movie";
+                // 作品IDは Jellyfin の見た目に合わせて 32桁ハイフン無し("N")。
+                targets.Add((item.Id.ToString("N"), mediaType, tmdbId, libraryId));
+            }
         }
 
-        var results = new ConcurrentDictionary<string, List<VodProvider>>();
+        var results = new ConcurrentDictionary<string, VodItemEntry>();
         var httpClient = _httpClientFactory.CreateClient(NamedClient.Default);
 
         // 同時に最大5本まで(TMDBに優しく)。
@@ -136,7 +165,7 @@ public class VodProviderManager
                 var providers = await FetchProvidersAsync(httpClient, target.MediaType, target.TmdbId, apiKey, region, token).ConfigureAwait(false);
                 if (providers.Count > 0)
                 {
-                    results[target.ItemId] = providers;
+                    results[target.ItemId] = new VodItemEntry { LibraryId = target.LibraryId, Providers = providers };
                 }
             }
             catch (Exception ex)
@@ -146,9 +175,9 @@ public class VodProviderManager
             }
         }).ConfigureAwait(false);
 
-        response.Providers = new Dictionary<string, List<VodProvider>>(results);
-        response.Count = response.Providers.Count;
-        _logger.LogInformation("CFilm: VOD scan finished. {Count} items matched (region {Region}).", response.Count, region);
+        response.Items = new Dictionary<string, VodItemEntry>(results);
+        response.Count = response.Items.Count;
+        _logger.LogInformation("CFilm: VOD scan finished. {Count} items matched (region {Region}, {LibraryCount} libraries).", response.Count, region, config.VodLibraryIds.Length);
         return response;
     }
 
