@@ -20,6 +20,7 @@ public class PluginConfiguration : BasePluginConfiguration
         TmdbApiKey = string.Empty;
         TmdbRegion = "JP";
         VodLibraryIds = Array.Empty<string>();
+        JellyseerrUrl = string.Empty;
     }
 
     /// <summary>
@@ -48,4 +49,10 @@ public class PluginConfiguration : BasePluginConfiguration
     /// 空の場合はスキャンを実行しない(=誤ってライブラリ全体を舐めるのを防ぐ安全策)。
     /// </summary>
     public string[] VodLibraryIds { get; set; }
+
+    /// <summary>
+    /// 【機能3】ワンタップ接続で一緒に配布する Jellyseerr のURL(任意)。
+    /// 空なら Connect のレスポンスに jellyseerr パラメータを含めない。
+    /// </summary>
+    public string JellyseerrUrl { get; set; }
 }

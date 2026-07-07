@@ -101,6 +101,21 @@
                         </div>
                     </div>
 
+                    <!-- ============ 機能3: ワンタップ接続 ============ -->
+                    <div class="cfilm-section">
+                        <h2>ワンタップ接続</h2>
+
+                        <h3>Jellyseerr URL(任意)</h3>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="JellyseerrUrl" type="text" placeholder="https://requests.example.com" autocomplete="off" />
+                            <div class="fieldDescription">
+                                設定すると、ワンタップ接続(Connectページ)経由でこのURLもアプリに渡され、
+                                アプリ内で同じJellyfinの資格情報を使ってJellyseerrにも自動的にログインします。
+                                空欄のままなら何も渡されません。
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- ============ 共通の保存 ============ -->
                     <div style="margin-top:2em;">
                         <button is="emby-button" type="submit" class="raised button-submit block emby-button">
@@ -259,6 +274,7 @@
                     config.TmdbApiKey = page.querySelector('#TmdbApiKey').value.trim();
                     config.VodLibraryIds = Array.prototype.slice.call(page.querySelectorAll('.cfilm-lib-checkbox:checked'))
                         .map(function (cb) { return cb.getAttribute('data-id'); });
+                    config.JellyseerrUrl = page.querySelector('#JellyseerrUrl').value.trim().replace(/\/+$/, '');
                     return ApiClient.updatePluginConfiguration(pluginId, config);
                 });
             }
@@ -342,6 +358,7 @@
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     page.querySelector('#RowName').value = config.RecommendationRowName || '';
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
+                    page.querySelector('#JellyseerrUrl').value = config.JellyseerrUrl || '';
                     selectedIds = (config.RecommendationItemIds || []).slice();
                     savedLibraryIds = (config.VodLibraryIds || []).slice();
                     loadSelectedNames();

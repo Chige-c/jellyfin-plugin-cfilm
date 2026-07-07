@@ -41,19 +41,22 @@ public class ConnectController : ControllerBase
         var host = string.IsNullOrEmpty(forwardedHost) ? Request.Host.ToString() : forwardedHost;
 
         var serverUrl = $"{scheme}://{host}";
+        var jellyseerrUrl = Plugin.Instance!.Configuration.JellyseerrUrl ?? string.Empty;
 
         return new ContentResult
         {
-            Content = BuildHtml(serverUrl),
+            Content = BuildHtml(serverUrl, jellyseerrUrl),
             ContentType = "text/html; charset=utf-8",
             StatusCode = 200
         };
     }
 
-    private static string BuildHtml(string serverUrl)
+    private static string BuildHtml(string serverUrl, string jellyseerrUrl)
     {
         // JSON文字列化してJSリテラルとして埋め込む(XSS対策。ホスト名を直接HTMLへ差し込まない)。
         var serverUrlJson = JsonSerializer.Serialize(serverUrl);
+        // 未設定なら "" になり、JS側の if (jellyseerrUrl) で自然に無視される。
+        var jellyseerrUrlJson = JsonSerializer.Serialize(jellyseerrUrl);
 
         return $$"""
         <!doctype html>
@@ -106,7 +109,11 @@ public class ConnectController : ControllerBase
           <script>
             (function () {
               var serverUrl = {{serverUrlJson}};
+              var jellyseerrUrl = {{jellyseerrUrlJson}};
               var customUrl = 'cfilm://connect?server=' + encodeURIComponent(serverUrl);
+              if (jellyseerrUrl) {
+                customUrl += '&jellyseerr=' + encodeURIComponent(jellyseerrUrl);
+              }
 
               var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
               var storeUrl = isIOS
