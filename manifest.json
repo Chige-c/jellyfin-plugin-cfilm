@@ -8,6 +8,14 @@
     "category":  "General",
     "versions":  [
                      {
+                         "version":  "1.2.0.0",
+                         "changelog":  "Add one-tap connect endpoint (GET /Plugins/CFilm/Connect) for the C-film app.",
+                         "targetAbi":  "10.11.11.0",
+                         "sourceUrl":  "https://github.com/Chige-c/jellyfin-plugin-cfilm/releases/download/v1.2.0.0/CFilm_1.2.0.0.zip",
+                         "checksum":  "bfb64e2c5587d328ea640a931b57e2d3",
+                         "timestamp":  "2026-07-07T14:14:04"
+                     },
+                     {
                          "version":  "1.1.0.0",
                          "changelog":  "VOD scan now requires selecting libraries first; results include libraryId per item.",
                          "targetAbi":  "10.11.11.0",
