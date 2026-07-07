@@ -1,0 +1,22 @@
+---
+# これは jprm(Jellyfin Plugin Repository Manager)で配布用パッケージを
+# 作るときに使う manifest です。今回は手動設置なので必須ではありませんが、
+# 将来「更新をアプリから自動配信」したくなったときのために置いておきます。
+name: "CFilm"
+guid: "596aa080-416e-46f0-805b-6d499f1cabd8"
+version: "1.0.0.0"
+targetAbi: "10.11.11.0"
+framework: "net9.0"
+overview: "ちだのおすすめ + VOD識別"
+description: >
+  C-film 向けの独自機能を Jellyfin サーバー本体に追加します。
+  (1) ちだのおすすめ: 順序付きのレコメンド行を設定画面で編集し、APIで公開。
+  (2) VOD識別: TMDB の watch providers(日本/flatrate)で各作品の配信サービスを判定し、
+      ライブラリ全体の一括対応表をAPIで公開。
+category: "General"
+owner: "chida"
+artifacts:
+  - "Jellyfin.Plugin.CFilm.dll"
+changelog: >
+  1.0.0.0 - 初版。ちだのおすすめ と VOD識別 を実装。
+---

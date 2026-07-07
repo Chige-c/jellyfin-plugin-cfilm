@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    このファイルは「このフォルダ以下すべてのプロジェクト共通の設定」です。
+    バージョン番号をここで一元管理します。
+    (Directory.Build.props という名前は .NET の決まりで、自動的に読まれます)
+  -->
+  <PropertyGroup>
+    <Version>1.0.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+</Project>

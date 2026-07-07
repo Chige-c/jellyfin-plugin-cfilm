@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Jellyfin 10.11 は .NET 9 なので、それに合わせる -->
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.CFilm</RootNamespace>
+    <AssemblyName>Jellyfin.Plugin.CFilm</AssemblyName>
+
+    <!-- null(値が無い状態)の扱いを厳しくして、バグを事前に防ぐ -->
+    <Nullable>enable</Nullable>
+    <!-- using を自動で補う(System など毎回書かなくてよい) -->
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- 個人用プラグインなので、警告でビルドを止めない(学習中の摩擦を減らす) -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Jellyfin 本体の部品(アセンブリ)。バージョンはサーバーと同じ 10.11.11。
+      ExcludeAssets=runtime の意味:
+        「コンパイル(型のチェック)のときだけ使う。DLL には同梱しない」
+      なぜなら実行時にはサーバー本体が同じ部品を既に持っているから。
+      同梱すると二重になり、かえって壊れる。
+    -->
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.11">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="10.11.11">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      設定画面の HTML を DLL の中に「埋め込みリソース」として入れる。
+      こうすると DLL 1個を置くだけで設定画面も一緒に配れる。
+    -->
+    <None Remove="Configuration\configPage.html" />
+    <EmbeddedResource Include="Configuration\configPage.html" />
+  </ItemGroup>
+
+</Project>

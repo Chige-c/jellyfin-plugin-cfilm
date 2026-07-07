@@ -1,0 +1,9 @@
+# .NET ビルド生成物
+bin/
+obj/
+dist/
+
+# IDE
+.vs/
+.idea/
+*.user

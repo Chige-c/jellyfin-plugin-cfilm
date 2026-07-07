@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>CFilm</title>
+    <style>
+        /* この設定画面だけに効くCSS(#CFilmConfigPage の中に限定) */
+        #CFilmConfigPage .cfilm-list {
+            border: 1px solid rgba(255,255,255,.15);
+            border-radius: 6px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding: 4px 8px;
+            margin-top: 6px;
+        }
+        #CFilmConfigPage .cfilm-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,.06);
+        }
+        #CFilmConfigPage .cfilm-row:last-child { border-bottom: none; }
+        #CFilmConfigPage .cfilm-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #CFilmConfigPage .cfilm-idx { width: 2.2em; text-align: right; opacity: .6; }
+        #CFilmConfigPage .cfilm-btn {
+            border: 1px solid rgba(255,255,255,.2);
+            background: transparent;
+            color: inherit;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 3px 9px;
+            font-size: 1em;
+            line-height: 1.2;
+        }
+        #CFilmConfigPage .cfilm-btn:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+        #CFilmConfigPage .cfilm-btn:disabled { opacity: .4; cursor: default; }
+        #CFilmConfigPage .cfilm-hint { opacity: .6; padding: 8px 0; }
+        #CFilmConfigPage .cfilm-section { margin-top: 2.5em; }
+        #CFilmConfigPage .cfilm-status { margin-top: 8px; min-height: 1.2em; opacity: .85; }
+    </style>
+</head>
+<body>
+    <div id="CFilmConfigPage" data-role="page"
+         class="page type-interior pluginConfigurationPage"
+         data-require="emby-input,emby-button">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="CFilmConfigForm">
+
+                    <!-- ============ 機能1: ちだのおすすめ ============ -->
+                    <h2>ちだのおすすめ</h2>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="RowName">行の名前</label>
+                        <input is="emby-input" id="RowName" type="text" />
+                        <div class="fieldDescription">アプリに表示される見出し。例: ちだのおすすめ</div>
+                    </div>
+
+                    <h3 style="margin-top:1.5em;">作品を検索して追加</h3>
+                    <div class="inputContainer">
+                        <input is="emby-input" id="SearchTerm" type="text" placeholder="作品名を入力(自動検索)" />
+                    </div>
+                    <div id="SearchResults" class="cfilm-list">
+                        <div class="cfilm-hint">上の欄に作品名を入力すると候補が出ます。</div>
+                    </div>
+
+                    <h3 style="margin-top:1.5em;">選択中（上から順に表示されます）</h3>
+                    <div id="SelectedItems" class="cfilm-list">
+                        <div class="cfilm-hint">まだありません。</div>
+                    </div>
+
+                    <!-- ============ 機能2: VOD識別 ============ -->
+                    <div class="cfilm-section">
+                        <h2>VOD識別（配信サービス）</h2>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB APIキー</label>
+                            <input is="emby-input" id="TmdbApiKey" type="text" autocomplete="off" />
+                            <div class="fieldDescription">
+                                themoviedb.org のアカウント設定 → API から取得できる v3 の「APIキー」。
+                                各作品の配信元(Netflix等)を日本地域(JP)で調べるのに使います。
+                            </div>
+                        </div>
+
+                        <div style="margin-top:10px;">
+                            <button type="button" id="ScanNow" class="cfilm-btn">🔄 今すぐスキャン</button>
+                            <div class="fieldDescription">
+                                APIキーを保存してから、ライブラリ全体を走査します（作品数によっては数分かかります）。
+                            </div>
+                            <div id="ScanStatus" class="cfilm-status"></div>
+                        </div>
+                    </div>
+
+                    <!-- ============ 共通の保存 ============ -->
+                    <div style="margin-top:2em;">
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>保存</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+        (function () {
+            // このプラグインの GUID(Plugin.cs の Id と一致)
+            var pluginId = '596aa080-416e-46f0-805b-6d499f1cabd8';
+
+            // 画面の状態(state)
+            var selectedIds = [];     // 順序付きの選択リスト(GUID文字列の配列)
+            var itemCache = {};       // id -> item  (名前や年を表示するための一時保管)
+            var lastSearch = [];      // 直近の検索結果(「追加済み」表示の更新に使う)
+            var searchTimer = null;   // 入力のたびに検索しすぎない用のタイマー
+
+            var page = document.querySelector('#CFilmConfigPage');
+
+            function userId() { return ApiClient.getCurrentUserId(); }
+
+            // HTMLに文字を差し込む際の安全化(記号をエスケープ)
+            function esc(s) {
+                return (s || '').replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
+            }
+
+            // 1件分の見出し文字列(🎬 タイトル (年))
+            function itemLabel(item) {
+                var year = item.ProductionYear ? ' (' + item.ProductionYear + ')' : '';
+                var mark = item.Type === 'Series' ? '📺' : '🎬';
+                return mark + ' ' + esc(item.Name) + year;
+            }
+
+            // --- 検索結果の描画 ---
+            function renderSearch() {
+                if (!lastSearch.length) {
+                    page.querySelector('#SearchResults').innerHTML =
+                        '<div class="cfilm-hint">該当なし。別の語で試してください。</div>';
+                    return;
+                }
+                var html = lastSearch.map(function (item) {
+                    itemCache[item.Id] = item;
+                    var already = selectedIds.indexOf(item.Id) !== -1;
+                    return '<div class="cfilm-row">' +
+                               '<span class="cfilm-title">' + itemLabel(item) + '</span>' +
+                               '<button type="button" class="cfilm-btn cfilm-add" data-id="' + item.Id + '"' +
+                                   (already ? ' disabled' : '') + '>' +
+                                   (already ? '追加済み' : '＋ 追加') +
+                               '</button>' +
+                           '</div>';
+                }).join('');
+                page.querySelector('#SearchResults').innerHTML = html;
+            }
+
+            // --- 選択中リストの描画 ---
+            function renderSelected() {
+                if (!selectedIds.length) {
+                    page.querySelector('#SelectedItems').innerHTML =
+                        '<div class="cfilm-hint">まだありません。上で検索して「＋ 追加」してください。</div>';
+                    return;
+                }
+                var html = selectedIds.map(function (id, idx) {
+                    var item = itemCache[id];
+                    var label = item ? itemLabel(item) : '(読込中… ' + esc(id) + ')';
+                    return '<div class="cfilm-row">' +
+                               '<span class="cfilm-idx">' + (idx + 1) + '.</span>' +
+                               '<span class="cfilm-title">' + label + '</span>' +
+                               '<button type="button" class="cfilm-btn cfilm-up" data-id="' + id + '" title="上へ">▲</button>' +
+                               '<button type="button" class="cfilm-btn cfilm-down" data-id="' + id + '" title="下へ">▼</button>' +
+                               '<button type="button" class="cfilm-btn cfilm-remove" data-id="' + id + '" title="削除">✕</button>' +
+                           '</div>';
+                }).join('');
+                page.querySelector('#SelectedItems').innerHTML = html;
+            }
+
+            // --- ライブラリ検索 ---
+            function doSearch(term) {
+                if (!term) {
+                    lastSearch = [];
+                    page.querySelector('#SearchResults').innerHTML =
+                        '<div class="cfilm-hint">上の欄に作品名を入力すると候補が出ます。</div>';
+                    return;
+                }
+                ApiClient.getItems(userId(), {
+                    SearchTerm: term,
+                    IncludeItemTypes: 'Movie,Series',
+                    Recursive: true,
+                    Limit: 25,
+                    Fields: 'ProductionYear',
+                    EnableTotalRecordCount: false
+                }).then(function (result) {
+                    lastSearch = result.Items || [];
+                    renderSearch();
+                });
+            }
+
+            // --- 保存済みIDの名前をまとめて取得(設定読込直後に1回) ---
+            function loadSelectedNames() {
+                var missing = selectedIds.filter(function (id) { return !itemCache[id]; });
+                if (!missing.length) { renderSelected(); return; }
+                ApiClient.getItems(userId(), {
+                    Ids: missing.join(','),
+                    Fields: 'ProductionYear'
+                }).then(function (result) {
+                    (result.Items || []).forEach(function (item) { itemCache[item.Id] = item; });
+                    renderSelected();
+                });
+            }
+
+            // --- 設定を丸ごと取得→書き換え→保存(他の設定を壊さないため) ---
+            function saveConfig() {
+                return ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.RecommendationRowName = page.querySelector('#RowName').value;
+                    config.RecommendationItemIds = selectedIds;
+                    config.TmdbApiKey = page.querySelector('#TmdbApiKey').value.trim();
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                });
+            }
+
+            function setScanStatus(text) {
+                page.querySelector('#ScanStatus').textContent = text || '';
+            }
+
+            // --- ボタン操作(イベント委譲: 親で一括受け) ---
+            page.addEventListener('click', function (e) {
+                var btn = e.target.closest('.cfilm-btn');
+                if (!btn) { return; }
+
+                // 「今すぐスキャン」だけは data-id を持たない特別ボタン
+                if (btn.id === 'ScanNow') {
+                    Dashboard.showLoadingMsg();
+                    setScanStatus('APIキーを保存してスキャン中…');
+                    saveConfig().then(function () {
+                        // 管理者用の再構築APIを叩く(ApiClientが認証を自動付与)
+                        return ApiClient.ajax({
+                            type: 'POST',
+                            url: ApiClient.getUrl('Plugins/CFilm/VodProviders/Rebuild'),
+                            dataType: 'json'
+                        });
+                    }).then(function (res) {
+                        setScanStatus('完了: ' + res.count + '件の作品に配信元が見つかりました（地域 ' + res.region + '）。');
+                        Dashboard.hideLoadingMsg();
+                    }).catch(function () {
+                        setScanStatus('スキャンに失敗しました。APIキーとサーバーのログを確認してください。');
+                        Dashboard.hideLoadingMsg();
+                    });
+                    return;
+                }
+
+                var id = btn.getAttribute('data-id');
+                if (!id) { return; }
+
+                if (btn.classList.contains('cfilm-add')) {
+                    if (selectedIds.indexOf(id) === -1) { selectedIds.push(id); }
+                    renderSelected();
+                    renderSearch(); // 「追加」→「追加済み」に更新
+                } else if (btn.classList.contains('cfilm-remove')) {
+                    selectedIds = selectedIds.filter(function (x) { return x !== id; });
+                    renderSelected();
+                    renderSearch();
+                } else if (btn.classList.contains('cfilm-up')) {
+                    var i = selectedIds.indexOf(id);
+                    if (i > 0) {
+                        var t = selectedIds[i - 1];
+                        selectedIds[i - 1] = selectedIds[i];
+                        selectedIds[i] = t;
+                        renderSelected();
+                    }
+                } else if (btn.classList.contains('cfilm-down')) {
+                    var j = selectedIds.indexOf(id);
+                    if (j !== -1 && j < selectedIds.length - 1) {
+                        var u = selectedIds[j + 1];
+                        selectedIds[j + 1] = selectedIds[j];
+                        selectedIds[j] = u;
+                        renderSelected();
+                    }
+                }
+            });
+
+            // --- 検索欄の入力(400ms待ってから検索=打つたびに叩かない) ---
+            page.querySelector('#SearchTerm').addEventListener('input', function (e) {
+                var term = e.target.value.trim();
+                if (searchTimer) { clearTimeout(searchTimer); }
+                searchTimer = setTimeout(function () { doSearch(term); }, 400);
+            });
+
+            // --- 画面表示時: 設定を読み込む ---
+            page.addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                setScanStatus('');
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    page.querySelector('#RowName').value = config.RecommendationRowName || '';
+                    page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
+                    selectedIds = (config.RecommendationItemIds || []).slice();
+                    loadSelectedNames();
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            // --- 保存ボタン ---
+            page.querySelector('#CFilmConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                saveConfig().then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                });
+                return false;
+            });
+        })();
+        </script>
+    </div>
+</body>
+</html>
