@@ -1,5 +1,7 @@
 using System.Linq;
+using System.Net.Mime;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -48,6 +50,24 @@ public class ConnectController : ControllerBase
             Content = BuildHtml(serverUrl, jellyseerrUrl),
             ContentType = "text/html; charset=utf-8",
             StatusCode = 200
+        };
+    }
+
+    /// <summary>
+    /// GET /Plugins/CFilm/ConnectInfo
+    /// /Connect と同じ情報源(このサーバーのJellyseerr URL設定)を、ブラウザ用HTMLではなく
+    /// JSONで返す版。アプリの「サーバーURLを手動入力」画面や「保存したサーバー」タップ接続が、
+    /// ワンタップ接続(ディープリンク)を経由しなくてもJellyseerr連携を行えるようにするためのもの。
+    /// このエンドポイント自体がCFilmプラグインを入れたサーバーにしか存在しない(=404になる)ため、
+    /// 呼び出し元を「プラグインを使っているサーバーの利用者」だけに絞る効果もある。
+    /// </summary>
+    [HttpGet("ConnectInfo")]
+    [Produces(MediaTypeNames.Application.Json)]
+    public ActionResult<ConnectInfoResponse> GetConnectInfo()
+    {
+        return new ConnectInfoResponse
+        {
+            JellyseerrUrl = Plugin.Instance!.Configuration.JellyseerrUrl ?? string.Empty
         };
     }
 
@@ -142,4 +162,13 @@ public class ConnectController : ControllerBase
         </html>
         """;
     }
+}
+
+/// <summary>
+/// /ConnectInfo が返す JSON の形。
+/// </summary>
+public class ConnectInfoResponse
+{
+    [JsonPropertyName("jellyseerrUrl")]
+    public string JellyseerrUrl { get; set; } = string.Empty;
 }
