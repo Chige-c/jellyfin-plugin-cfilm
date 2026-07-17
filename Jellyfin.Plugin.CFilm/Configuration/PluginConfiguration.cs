@@ -21,6 +21,8 @@ public class PluginConfiguration : BasePluginConfiguration
         TmdbRegion = "JP";
         VodLibraryIds = Array.Empty<string>();
         JellyseerrUrl = string.Empty;
+        IosStoreUrl = string.Empty;
+        AndroidStoreUrl = string.Empty;
     }
 
     /// <summary>
@@ -55,4 +57,16 @@ public class PluginConfiguration : BasePluginConfiguration
     /// 空なら Connect のレスポンスに jellyseerr パラメータを含めない。
     /// </summary>
     public string JellyseerrUrl { get; set; }
+
+    /// <summary>
+    /// 【機能3】アプリ未インストール時の「ストアでインストール」リンク(iOS)の上書き用(任意)。
+    /// 空なら <see cref="Api.ConnectController"/> の既定URLを使う。
+    /// </summary>
+    public string IosStoreUrl { get; set; }
+
+    /// <summary>
+    /// 【機能3】アプリ未インストール時の「ストアでインストール」リンク(Android)の上書き用(任意)。
+    /// 空なら <see cref="Api.ConnectController"/> の既定URLを使う。
+    /// </summary>
+    public string AndroidStoreUrl { get; set; }
 }

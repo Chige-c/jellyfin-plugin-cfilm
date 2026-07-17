@@ -114,6 +114,20 @@
                                 空欄のままなら何も渡されません。
                             </div>
                         </div>
+
+                        <h3 style="margin-top:1.5em;">ストアURL(任意・上書き)</h3>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="IosStoreUrl">iOS(App Store)</label>
+                            <input is="emby-input" id="IosStoreUrl" type="text" placeholder="https://apps.apple.com/jp/app/c-film/id6789828713" autocomplete="off" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="AndroidStoreUrl">Android(Google Play)</label>
+                            <input is="emby-input" id="AndroidStoreUrl" type="text" placeholder="https://play.google.com/store/apps/details?id=com.cfilm.app" autocomplete="off" />
+                            <div class="fieldDescription">
+                                アプリ未インストール時の「ストアでインストール」リンク先。接続したデバイスのOSを自動判定してiOS/Androidどちらかに振り分けます。
+                                空欄のままなら既定のC-filmアプリの配布URLを使うので、通常は入力不要です。
+                            </div>
+                        </div>
                     </div>
 
                     <!-- ============ 共通の保存 ============ -->
@@ -275,6 +289,8 @@
                     config.VodLibraryIds = Array.prototype.slice.call(page.querySelectorAll('.cfilm-lib-checkbox:checked'))
                         .map(function (cb) { return cb.getAttribute('data-id'); });
                     config.JellyseerrUrl = page.querySelector('#JellyseerrUrl').value.trim().replace(/\/+$/, '');
+                    config.IosStoreUrl = page.querySelector('#IosStoreUrl').value.trim();
+                    config.AndroidStoreUrl = page.querySelector('#AndroidStoreUrl').value.trim();
                     return ApiClient.updatePluginConfiguration(pluginId, config);
                 });
             }
@@ -359,6 +375,8 @@
                     page.querySelector('#RowName').value = config.RecommendationRowName || '';
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
                     page.querySelector('#JellyseerrUrl').value = config.JellyseerrUrl || '';
+                    page.querySelector('#IosStoreUrl').value = config.IosStoreUrl || '';
+                    page.querySelector('#AndroidStoreUrl').value = config.AndroidStoreUrl || '';
                     selectedIds = (config.RecommendationItemIds || []).slice();
                     savedLibraryIds = (config.VodLibraryIds || []).slice();
                     loadSelectedNames();

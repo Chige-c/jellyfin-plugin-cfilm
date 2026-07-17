@@ -27,6 +27,15 @@ namespace Jellyfin.Plugin.CFilm.Api;
 public class ConnectController : ControllerBase
 {
     /// <summary>
+    /// C-film アプリ自体は全管理者共通の1本(chida1125 名義で公開)なので、
+    /// ストアURLは管理者ごとに変わるJellyseerrURLとは違い既定値をコードに持たせる。
+    /// 設定画面で空欄のまま使う管理者が大半である前提(上書きは任意)。
+    /// </summary>
+    private const string DefaultIosStoreUrl = "https://apps.apple.com/jp/app/c-film/id6789828713";
+
+    private const string DefaultAndroidStoreUrl = "https://play.google.com/store/apps/details?id=com.cfilm.app";
+
+    /// <summary>
     /// GET /Plugins/CFilm/Connect
     /// リバースプロキシ配下でも正しいホスト名を取るため、
     /// X-Forwarded-Proto (標準名) と X-Forwarded-Protocol (Jellyfin界隈でよく使われる表記)の
@@ -43,11 +52,14 @@ public class ConnectController : ControllerBase
         var host = string.IsNullOrEmpty(forwardedHost) ? Request.Host.ToString() : forwardedHost;
 
         var serverUrl = $"{scheme}://{host}";
-        var jellyseerrUrl = Plugin.Instance!.Configuration.JellyseerrUrl ?? string.Empty;
+        var config = Plugin.Instance!.Configuration;
+        var jellyseerrUrl = config.JellyseerrUrl ?? string.Empty;
+        var iosStoreUrl = string.IsNullOrWhiteSpace(config.IosStoreUrl) ? DefaultIosStoreUrl : config.IosStoreUrl;
+        var androidStoreUrl = string.IsNullOrWhiteSpace(config.AndroidStoreUrl) ? DefaultAndroidStoreUrl : config.AndroidStoreUrl;
 
         return new ContentResult
         {
-            Content = BuildHtml(serverUrl, jellyseerrUrl),
+            Content = BuildHtml(serverUrl, jellyseerrUrl, iosStoreUrl, androidStoreUrl),
             ContentType = "text/html; charset=utf-8",
             StatusCode = 200
         };
@@ -71,12 +83,14 @@ public class ConnectController : ControllerBase
         };
     }
 
-    private static string BuildHtml(string serverUrl, string jellyseerrUrl)
+    private static string BuildHtml(string serverUrl, string jellyseerrUrl, string iosStoreUrl, string androidStoreUrl)
     {
         // JSON文字列化してJSリテラルとして埋め込む(XSS対策。ホスト名を直接HTMLへ差し込まない)。
         var serverUrlJson = JsonSerializer.Serialize(serverUrl);
         // 未設定なら "" になり、JS側の if (jellyseerrUrl) で自然に無視される。
         var jellyseerrUrlJson = JsonSerializer.Serialize(jellyseerrUrl);
+        var iosStoreUrlJson = JsonSerializer.Serialize(iosStoreUrl);
+        var androidStoreUrlJson = JsonSerializer.Serialize(androidStoreUrl);
 
         return $$"""
         <!doctype html>
@@ -136,9 +150,7 @@ public class ConnectController : ControllerBase
               }
 
               var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-              var storeUrl = isIOS
-                ? 'https://cfilm.app/get-ios'
-                : 'https://cfilm.app/get-android';
+              var storeUrl = isIOS ? {{iosStoreUrlJson}} : {{androidStoreUrlJson}};
               document.getElementById('store-link').href = storeUrl;
               document.getElementById('retry-link').href = customUrl;
 
