@@ -149,7 +149,13 @@ public class ConnectController : ControllerBase
                 customUrl += '&jellyseerr=' + encodeURIComponent(jellyseerrUrl);
               }
 
-              var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+              // iPadOS(iOS13以降)のSafariは既定で「デスクトップ用Webサイトを表示」になっており、
+              // UAがMac扱い(iPad/iPhoneの文字列を含まない)になる。iPhoneでも同設定を手動でONにすると同様。
+              // そのためUA文字列だけでなく、Macを名乗りつつマルチタッチに対応している(=実機はiPadだが
+              // デスクトップUAで自己申告している)場合もiOS側と判定する。
+              var ua = navigator.userAgent;
+              var isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+                (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
               var storeUrl = isIOS ? {{iosStoreUrlJson}} : {{androidStoreUrlJson}};
               document.getElementById('store-link').href = storeUrl;
               document.getElementById('retry-link').href = customUrl;
