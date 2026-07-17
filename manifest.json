@@ -8,8 +8,16 @@
     "category":  "General",
     "versions":  [
                      {
+                         "version":  "1.2.4.0",
+                         "changelog":  "The Connect page\u0027s \"Install from Store\" link now points to the real C-film App Store / Google Play listings (auto-detected by device OS), replacing placeholder URLs. Both can optionally be overridden per-server in plugin settings.",
+                         "targetAbi":  "10.11.11.0",
+                         "sourceUrl":  "https://github.com/Chige-c/jellyfin-plugin-cfilm/releases/download/v1.2.4.0/CFilm_1.2.4.0.zip",
+                         "checksum":  "e01da7314a2104a16a6f7f146f8eef53",
+                         "timestamp":  "2026-07-17T13:00:30"
+                     },
+                     {
                          "version":  "1.2.3.0",
-                         "changelog":  "Added GET /Plugins/CFilm/ConnectInfo, an anonymous JSON endpoint that returns this server's configured Jellyseerr URL. The C-film app now calls it after any successful server connection (manual URL entry or tapping a saved server), not just via the one-tap deep link, so Jellyseerr auto sign-in works the same way regardless of how the user connected. Works for any Jellyfin server running the CFilm plugin, not just this one.",
+                         "changelog":  "Added GET /Plugins/CFilm/ConnectInfo, an anonymous JSON endpoint that returns this server\u0027s configured Jellyseerr URL. The C-film app now calls it after any successful server connection (manual URL entry or tapping a saved server), not just via the one-tap deep link, so Jellyseerr auto sign-in works the same way regardless of how the user connected. Works for any Jellyfin server running the CFilm plugin, not just this one.",
                          "targetAbi":  "10.11.11.0",
                          "sourceUrl":  "https://github.com/Chige-c/jellyfin-plugin-cfilm/releases/download/v1.2.3.0/CFilm_1.2.3.0.zip",
                          "checksum":  "d341ed2e3d02de0b83652bd072f14bb1",
